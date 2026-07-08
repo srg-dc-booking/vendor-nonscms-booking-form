@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vendor Booking – Non SCMS</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f5f7; margin: 0; padding: 2rem 1rem; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.08); max-width: 760px; margin: 0 auto; padding: 2rem; }
+    h1 { font-size: 1.3rem; margin-bottom: .3rem; color: #1a1a2e; }
+    p.sub { font-size: .85rem; color: #666; margin-bottom: 1.5rem; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.4rem 0; }
+    h2 { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #6b7280; margin: 0 0 .8rem; }
+    label { display: block; font-size: .85rem; font-weight: 600; color: #374151; margin-bottom: .3rem; }
+    input[type=text], input[type=email], input[type=date], input[type=number], select, textarea {
+      width: 100%; padding: .55rem .8rem; border: 1.5px solid #d1d5db; border-radius: 6px;
+      font-size: .88rem; color: #111; box-sizing: border-box; font-family: inherit;
+    }
+    textarea { resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .field { margin-bottom: 1rem; }
+    .err { color: #dc2626; font-size: .78rem; margin-top: .2rem; display: none; }
+    .radio-row { display: flex; gap: 1.5rem; margin-top: .3rem; }
+    .radio-row label { font-weight: 400; display: flex; align-items: center; gap: .4rem; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: .5rem; overflow-x: auto; display: block; }
+    th { font-size: .72rem; font-weight: 700; text-transform: uppercase; color: #6b7280; text-align: left; padding: 0 .4rem .5rem; white-space: nowrap; }
+    td { padding: .25rem .3rem; }
+    td input, td select { padding: .4rem .5rem; font-size: .83rem; min-width: 80px; }
+    .del-btn { background: none; border: none; color: #ef4444; font-size: 1.2rem; cursor: pointer; padding: 0 .3rem; }
+    .add-btn { background: #f3f4f6; border: 1.5px dashed #9ca3af; border-radius: 6px; width: 100%; padding: .45rem; font-size: .85rem; cursor: pointer; margin-top: .3rem; }
+    .add-btn:hover { background: #e5e7eb; }
+    .submit-btn { width: 100%; padding: .8rem; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 1.5rem; }
+    .submit-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+    .success { background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 1rem 1.2rem; color: #15803d; margin-top: 1.2rem; display: none; }
+    .success h3 { margin: 0 0 .4rem; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Vendor Booking — Non SCMS</h1>
+  <p class="sub">Complete all fields and submit your delivery booking. You will receive a confirmation email with your booking details.</p>
+
+  <form id="frm">
+
+    <h2>Vendor Details</h2>
+    <div class="row">
+      <div class="field">
+        <label>Vendor Number *</label>
+        <input type="text" id="vendor" placeholder="e.g. 101503" />
+        <div class="err" id="e-vendor">Required</div>
+      </div>
+      <div class="field">
+        <label>Confirmation Email *</label>
+        <input type="email" id="email" placeholder="supplier@company.com" />
+        <div class="err" id="e-email">Valid email required</div>
+      </div>
+    </div>
+
+    <hr>
+    <h2>Delivery Method</h2>
+    <div class="field">
+      <div class="radio-row">
+        <label><input type="radio" name="dt" value="Direct" onchange="switchMode()"> Direct</label>
+        <label><input type="radio" name="dt" value="Via DC" onchange="switchMode()"> Via DC</label>
+      </div>
+      <div class="err" id="e-dt">Please select a delivery method</div>
+    </div>
+
+    <div id="dc-direct" class="field" style="display:none">
+      <label>DC *</label>
+      <select id="dc"><option value="">— Select DC —</option></select>
+      <div class="err" id="e-dc">Required</div>
+    </div>
+
+    <div id="dc-via" style="display:none">
+      <div class="row">
+        <div class="field">
+          <label>Initial DC *</label>
+          <select id="init-dc"><option value="">— Select Initial DC —</option></select>
+          <div class="err" id="e-init-dc">Required</div>
+        </div>
+        <div class="field">
+          <label>End Site Receiving DC *</label>
+          <select id="end-dc"><option value="">— Select End Site DC —</option></select>
+          <div class="err" id="e-end-dc">Required</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="rest" style="display:none">
+
+      <hr>
+      <h2>Dangerous Goods</h2>
+      <div class="field">
+        <label>Does this load contain Dangerous Goods? *</label>
+        <div class="radio-row">
+          <label><input type="radio" name="dg" value="Y"> Yes</label>
+          <label><input type="radio" name="dg" value="N" checked> No</label>
+        </div>
+      </div>
+
+      <hr>
+      <h2>Transport Details</h2>
+      <table>
+        <thead id="t-thead"></thead>
+        <tbody id="t-tbody"></tbody>
+      </table>
+      <button type="button" class="add-btn" onclick="addTransport()">+ Add Transport Row</button>
+      <div class="err" id="e-transport">Add at least one transport row</div>
+
+      <hr>
+      <h2>Purchase Order Details</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Site Number</th><th>Region No</th><th>CPO Number</th><th>ASN Number</th><th>SSCC Qty</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="po-tbody"></tbody>
+      </table>
+      <button type="button" class="add-btn" onclick="addPO()">+ Add PO Row</button>
+
+      <hr>
+      <h2>Special Instructions</h2>
+      <div class="field">
+        <textarea id="instructions" rows="3" placeholder="Special handling, access requirements, or other instructions..."></textarea>
+      </div>
+
+      <hr>
+      <h2>Preferred Delivery Slot</h2>
+      <div class="row">
+        <div class="field">
+          <label>Preferred Date *</label>
+          <input type="date" id="pdate" />
+          <div class="err" id="e-pdate">Please select a weekday</div>
+        </div>
+        <div class="field">
+          <label>Preferred Time</label>
+          <select id="ptime">
+            <option value="ANY">No Preference</option>
+            <option value="MORNING">Morning (6am – 12pm)</option>
+            <option value="AFTERNOON">Afternoon (12pm – 6pm)</option>
+          </select>
+        </div>
+      </div>
+
+    </div><!-- end #rest -->
+
+    <button type="submit" class="submit-btn" id="sbtn" style="display:none">Submit Booking</button>
+  </form>
+
+  <div class="success" id="ok">
+    <h3>✅ Booking Submitted</h3>
+    <p>Your Non SCMS booking request has been received. You will receive a confirmation email shortly. If nothing arrives within 15 minutes please contact the warehouse team.</p>
+  </div>
+</div>
+
+<script>
+const WEBHOOK = "PASTE_YOUR_POWER_AUTOMATE_URL_HERE";
+
+const DCS = ["ANA LAVERTON","ANA NSW RDC","ANA QLD RDC","ANA WA RDC","HS 2037","HS 5001","SPL LAVERTON","SPL NSW RDC","SPL QLD RDC","SPL WA RDC"];
+["dc","init-dc","end-dc"].forEach(id => DCS.forEach(d => { const o = new Option(d,d); document.getElementById(id).add(o); }));
+
+let viaMode = false, tId = 0, pId = 0;
+
+function switchMode() {
+  const dt = document.querySelector('input[name=dt]:checked')?.value;
+  viaMode = dt === "Via DC";
+  document.getElementById("dc-direct").style.display = viaMode ? "none"  : dt ? "block" : "none";
+  document.getElementById("dc-via").style.display    = viaMode ? "block" : "none";
+  document.getElementById("rest").style.display      = dt ? "block" : "none";
+  document.getElementById("sbtn").style.display      = dt ? "block" : "none";
+  buildTransportHeader();
+  document.getElementById("t-tbody").innerHTML = "";
+  tId = 0;
+  addTransport();
+}
+
+function buildTransportHeader() {
+  const cols = viaMode
+    ? ["Transport Provider","Consignment Number","MHU Type","Qty of MHU","Loose Load","LL SSCC Qty","Mixed",""]
+    : ["Transport Provider","Consignment Number","MHU Type","Qty of MHU","Loose Load","LL SSCC Qty",""];
+  document.getElementById("t-thead").innerHTML = "<tr>" + cols.map(c=>`<th>${c}</th>`).join("") + "</tr>";
+}
+
+function addTransport() {
+  tId++;
+  const r = tId;
+  const mixedCol = viaMode ? `<td><select id="tmx${r}"><option value="N">N</option><option value="Y">Y</option></select></td>` : "";
+  const tr = document.createElement("tr");
+  tr.id = "tr"+r;
+  tr.innerHTML = `
+    <td><input type="text" id="tprov${r}" placeholder="Transport provider" style="min-width:120px"></td>
+    <td><input type="text" id="tcon${r}" placeholder="Consignment No"></td>
+    <td><select id="tmhu${r}"><option value="">—</option><option>Pallet</option><option>Stillage</option></select></td>
+    <td><input type="number" id="tqty${r}" value="1" min="0" style="width:70px"></td>
+    <td><select id="tll${r}"><option value="N">N</option><option value="Y">Y</option></select></td>
+    <td><input type="number" id="tlq${r}" value="0" min="0" style="width:70px"></td>
+    ${mixedCol}
+    <td><button type="button" class="del-btn" onclick="document.getElementById('tr${r}').remove()">×</button></td>`;
+  document.getElementById("t-tbody").appendChild(tr);
+}
+
+function addPO() {
+  pId++;
+  const r = pId;
+  const tr = document.createElement("tr");
+  tr.id = "pr"+r;
+  tr.innerHTML = `
+    <td><input type="text" id="psite${r}" placeholder="Site No"></td>
+    <td><input type="text" id="preg${r}"  placeholder="Region No"></td>
+    <td><input type="text" id="pcpo${r}"  placeholder="CPO Number"></td>
+    <td><input type="text" id="pasn${r}"  placeholder="ASN Number"></td>
+    <td><input type="number" id="psscc${r}" value="0" min="0" style="width:70px"></td>
+    <td><button type="button" class="del-btn" onclick="document.getElementById('pr${r}').remove()">×</button></td>`;
+  document.getElementById("po-tbody").appendChild(tr);
+}
+
+function getTransport() {
+  return [...document.querySelectorAll("#t-tbody tr")].map(tr => {
+    const n = tr.id.replace("tr","");
+    const con = document.getElementById("tcon"+n)?.value.trim();
+    if (!con) return null;
+    const o = {
+      provider:    document.getElementById("tprov"+n)?.value.trim()||"",
+      consignment: con,
+      mhu_type:    document.getElementById("tmhu"+n)?.value||"",
+      qty_mhu:     +document.getElementById("tqty"+n)?.value||0,
+      loose_load:  document.getElementById("tll"+n)?.value||"N",
+      ll_sscc_qty: +document.getElementById("tlq"+n)?.value||0
+    };
+    if (viaMode) o.mixed = document.getElementById("tmx"+n)?.value||"N";
+    return o;
+  }).filter(Boolean);
+}
+
+function getPOs() {
+  return [...document.querySelectorAll("#po-tbody tr")].map(tr => {
+    const n = tr.id.replace("pr","");
+    return {
+      site_number: document.getElementById("psite"+n)?.value.trim()||"",
+      region_no:   document.getElementById("preg"+n)?.value.trim()||"",
+      cpo_number:  document.getElementById("pcpo"+n)?.value.trim()||"",
+      asn_number:  document.getElementById("pasn"+n)?.value.trim()||"",
+      sscc_qty:    +document.getElementById("psscc"+n)?.value||0
+    };
+  });
+}
+
+const pd = document.getElementById("pdate");
+pd.min = new Date().toISOString().split("T")[0];
+function isWeekend(s) { const d = new Date(s+"T12:00:00"); return d.getDay()===0||d.getDay()===6; }
+
+document.getElementById("frm").onsubmit = async function(e) {
+  e.preventDefault();
+  let ok = true;
+  const show = (id, bad) => { document.getElementById("e-"+id).style.display = bad?"block":"none"; if(bad) ok=false; };
+
+  show("vendor", !document.getElementById("vendor").value.trim());
+  show("email", !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(document.getElementById("email").value.trim()));
+  const dt = document.querySelector('input[name=dt]:checked')?.value;
+  show("dt", !dt);
+  if (dt) {
+    if (!viaMode) show("dc", !document.getElementById("dc").value);
+    else { show("init-dc", !document.getElementById("init-dc").value); show("end-dc", !document.getElementById("end-dc").value); }
+    show("transport", getTransport().length === 0);
+    const d = document.getElementById("pdate").value;
+    show("pdate", !d || isWeekend(d));
+  }
+  if (!ok) return;
+
+  const btn = document.getElementById("sbtn");
+  btn.disabled = true; btn.textContent = "Submitting…";
+
+  const d = document.getElementById("pdate").value;
+  const payload = {
+    booking_type:      "Vendor Booking - Non SCMS",
+    vendor_code:       document.getElementById("vendor").value.trim(),
+    delivery_type:     dt,
+    dc:                viaMode ? document.getElementById("init-dc").value : document.getElementById("dc").value,
+    end_site_dc:       viaMode ? document.getElementById("end-dc").value : null,
+    dangerous_goods:   document.querySelector('input[name=dg]:checked')?.value||"N",
+    transport_info:    JSON.stringify(getTransport()),
+    po_detail:         JSON.stringify(getPOs()),
+    special_instructions: document.getElementById("instructions").value.trim()||null,
+    preferred_date:    d,
+    preferred_time:    document.getElementById("ptime").value,
+    email:             document.getElementById("email").value.trim()
+  };
+
+  try {
+    await fetch(WEBHOOK, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
+    document.getElementById("frm").style.display = "none";
+    document.getElementById("ok").style.display  = "block";
+  } catch {
+    btn.disabled = false; btn.textContent = "Submit Booking";
+    alert("Could not reach the booking service. Please try again.");
+  }
+};
+
+const qv = new URLSearchParams(location.search).get("vendor");
+if (qv) { const f=document.getElementById("vendor"); f.value=qv; f.readOnly=true; f.style.background="#f3f4f6"; f.style.color="#6b7280"; }
+</script>
+</body>
+</html>
