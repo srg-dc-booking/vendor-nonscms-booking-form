@@ -112,7 +112,7 @@
 
 <script>
 const WEBHOOK = "PASTE_YOUR_POWER_AUTOMATE_URL_HERE";
-const DCS = ["ANA LAVERTON","ANA NSW RDC","ANA QLD RDC","ANA WA RDC","HS 2037","HS 5001","SPL LAVERTON","SPL NSW RDC","SPL QLD RDC","SPL WA RDC"];
+const DCS = ["NSW","QLD","VIC ANA","VIC SPL","WA"];
 document.getElementById("init-dc") && DCS.forEach(d => document.getElementById("init-dc").add(new Option(d,d)));
 
 function dcOpts(sel="") {
@@ -171,6 +171,16 @@ function siteHTML(sId, withMixed, removeFn, title) {
       <table><thead><tr>${tt.header}</tr></thead><tbody id="${sId}-t-tbody"></tbody></table>
     </div>
     <button type="button" class="add-row-btn" onclick="addTRow('${sId}',${withMixed})">+ Add Transport Row</button>
+    &nbsp;<button type="button" class="add-row-btn" onclick="toggleNsPanel('${sId}-t-paste')">📋 Paste from Spreadsheet</button>
+    <div id="${sId}-t-paste" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:.8rem;margin-top:.4rem;margin-bottom:.4rem">
+      <div style="font-size:.82rem;font-weight:600;color:#374151;margin-bottom:.3rem">Paste rows (comma or tab separated)</div>
+      <div style="font-size:.78rem;color:#6b7280;margin-bottom:.5rem">Columns: <strong>${withMixed ? "Transport Provider, Consignment Number, MHU Type, Qty MHU, Loose Load (Y/N), LL SSCC Qty, Mixed (Y/N)" : "Transport Provider, Consignment Number, MHU Type, Qty MHU, Loose Load (Y/N), LL SSCC Qty"}</strong></div>
+      <textarea id="${sId}-t-paste-txt" rows="3" style="width:100%;font-family:monospace;font-size:.82rem;padding:.4rem;border:1px solid #d1d5db;border-radius:4px;box-sizing:border-box" placeholder="ABC Freight,CON001,Pallet,4,Y,2${withMixed ? ",N" : ""}&#10;XYZ Carriers,CON002,Stillage,2,N,0${withMixed ? ",Y" : ""}"></textarea>
+      <div style="display:flex;gap:.4rem;margin-top:.4rem">
+        <button type="button" onclick="importTPaste('${sId}',${withMixed})" style="background:#2563eb;color:#fff;border:none;border-radius:5px;padding:.35rem .9rem;font-size:.82rem;cursor:pointer">Import</button>
+        <button type="button" onclick="toggleNsPanel('${sId}-t-paste')" style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;padding:.35rem .9rem;font-size:.82rem;cursor:pointer">Cancel</button>
+      </div>
+    </div>
     <div class="err" id="e-${sId}-t">Add at least one transport row</div>
     <h3>Purchase Order Details</h3>
     <div class="tbl-wrap">
@@ -179,6 +189,16 @@ function siteHTML(sId, withMixed, removeFn, title) {
       </tr></thead><tbody id="${sId}-po-tbody"></tbody></table>
     </div>
     <button type="button" class="add-row-btn" onclick="addPORow('${sId}')">+ Add PO Row</button>
+    &nbsp;<button type="button" class="add-row-btn" onclick="toggleNsPanel('${sId}-po-paste')">📋 Paste from Spreadsheet</button>
+    <div id="${sId}-po-paste" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:.8rem;margin-top:.4rem;margin-bottom:.4rem">
+      <div style="font-size:.82rem;font-weight:600;color:#374151;margin-bottom:.3rem">Paste rows (comma or tab separated)</div>
+      <div style="font-size:.78rem;color:#6b7280;margin-bottom:.5rem">Columns: <strong>Site Number, Region No, CPO Number, ASN Number, SSCC Qty</strong></div>
+      <textarea id="${sId}-po-paste-txt" rows="3" style="width:100%;font-family:monospace;font-size:.82rem;padding:.4rem;border:1px solid #d1d5db;border-radius:4px;box-sizing:border-box" placeholder="SITE01,R01,CPO123,ASN456,10&#10;SITE02,R02,CPO789,ASN012,5"></textarea>
+      <div style="display:flex;gap:.4rem;margin-top:.4rem">
+        <button type="button" onclick="importPOPaste('${sId}')" style="background:#2563eb;color:#fff;border:none;border-radius:5px;padding:.35rem .9rem;font-size:.82rem;cursor:pointer">Import</button>
+        <button type="button" onclick="toggleNsPanel('${sId}-po-paste')" style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;padding:.35rem .9rem;font-size:.82rem;cursor:pointer">Cancel</button>
+      </div>
+    </div>
     <h3>Special Instructions</h3>
     <div class="field"><textarea id="${sId}-inst" rows="2" placeholder="Special handling, access requirements, notes..."></textarea></div>
     <div class="row" style="margin-top:.5rem">
@@ -370,6 +390,53 @@ document.getElementById("frm").onsubmit = async function(e) {
 
 const qv = new URLSearchParams(location.search).get("vendor");
 if (qv) { const f=document.getElementById("vendor"); f.value=qv; f.readOnly=true; f.style.background="#f3f4f6"; f.style.color="#6b7280"; }
+
+// ── Paste helpers ─────────────────────────────────────────────────────────
+function toggleNsPanel(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display==="none" ? "block" : "none";
+}
+
+function importTPaste(sId, withMixed) {
+  const text = document.getElementById(sId+"-t-paste-txt").value.trim();
+  if (!text) return;
+  text.split(/\r?\n/).filter(l=>l.trim()).forEach(line => {
+    rc[sId] = rc[sId]||{t:0,po:0}; rc[sId].t++;
+    const r = rc[sId].t; const p = line.split(/\t|,|;/).map(x=>x.trim());
+    const mCell = withMixed ? `<td><select id="${sId}m${r}"><option value="N"${(p[6]||"").toUpperCase()!=="Y"?" selected":""}>N</option><option value="Y"${(p[6]||"").toUpperCase()==="Y"?" selected":""}>Y</option></select></td>` : "";
+    const tr = document.createElement("tr"); tr.id = sId+"tr"+r;
+    tr.innerHTML = `
+      <td><input type="text" id="${sId}tp${r}" value="${(p[0]||"").replace(/"/g,'&quot;')}"></td>
+      <td><input type="text" id="${sId}tc${r}" value="${(p[1]||"").replace(/"/g,'&quot;')}"></td>
+      <td><select id="${sId}tm${r}"><option value="">—</option><option${p[2]==="Pallet"?" selected":""}>Pallet</option><option${p[2]==="Stillage"?" selected":""}>Stillage</option></select></td>
+      <td><input type="number" id="${sId}tq${r}" value="${+p[3]||1}" min="0" style="width:70px"></td>
+      <td><select id="${sId}tl${r}"><option value="N"${(p[4]||"").toUpperCase()!=="Y"?" selected":""}>N</option><option value="Y"${(p[4]||"").toUpperCase()==="Y"?" selected":""}>Y</option></select></td>
+      <td><input type="number" id="${sId}tll${r}" value="${+p[5]||0}" min="0" style="width:70px"></td>
+      ${mCell}
+      <td><button type="button" class="del-btn" onclick="document.getElementById('${sId}tr${r}').remove()">×</button></td>`;
+    document.getElementById(sId+"-t-tbody").appendChild(tr);
+  });
+  document.getElementById(sId+"-t-paste").style.display = "none";
+}
+
+function importPOPaste(sId) {
+  const text = document.getElementById(sId+"-po-paste-txt").value.trim();
+  if (!text) return;
+  text.split(/\r?\n/).filter(l=>l.trim()).forEach(line => {
+    rc[sId] = rc[sId]||{t:0,po:0}; rc[sId].po++;
+    const r = rc[sId].po; const p = line.split(/\t|,|;/).map(x=>x.trim());
+    const tr = document.createElement("tr"); tr.id = sId+"por"+r;
+    tr.innerHTML = `
+      <td><input type="text" id="${sId}ps${r}" value="${(p[0]||"").replace(/"/g,'&quot;')}"></td>
+      <td><input type="text" id="${sId}pr${r}" value="${(p[1]||"").replace(/"/g,'&quot;')}"></td>
+      <td><input type="text" id="${sId}pc${r}" value="${(p[2]||"").replace(/"/g,'&quot;')}"></td>
+      <td><input type="text" id="${sId}pa${r}" value="${(p[3]||"").replace(/"/g,'&quot;')}"></td>
+      <td><input type="number" id="${sId}pq${r}" value="${+p[4]||0}" min="0" style="width:70px"></td>
+      <td><button type="button" class="del-btn" onclick="document.getElementById('${sId}por${r}').remove()">×</button></td>`;
+    document.getElementById(sId+"-po-tbody").appendChild(tr);
+  });
+  document.getElementById(sId+"-po-paste").style.display = "none";
+}
 </script>
 </body>
 </html>
