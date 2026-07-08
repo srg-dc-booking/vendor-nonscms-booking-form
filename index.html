@@ -294,69 +294,72 @@ document.getElementById("frm").onsubmit = async function(e) {
 
   const vendor = document.getElementById("vendor").value.trim();
   const email  = document.getElementById("email").value.trim();
-  const btn = document.getElementById("sbtn");
+  const btn    = document.getElementById("sbtn");
   btn.disabled = true; btn.textContent = "Submitting…";
 
+  let payload;
+
+  if (dt === "Direct") {
+    const boxes = [...document.querySelectorAll("#sites-direct .site-box")];
+    let allOk = true;
+    boxes.forEach(box => {
+      const s = box.id.replace("ds",""); const sId = "d"+s;
+      show(sId+"-dc", !document.getElementById(sId+"-dc")?.value);
+      show(sId+"-t", getTRows(sId,false).length===0);
+      const d = document.getElementById(sId+"-date")?.value;
+      show(sId+"-date", !d||isWeekend(d));
+      if (!document.getElementById(sId+"-dc")?.value||getTRows(sId,false).length===0||!d||isWeekend(d)) allOk=false;
+    });
+    if (!allOk) { btn.disabled=false; btn.textContent="Submit Booking"; return; }
+
+    const sites = boxes.map(box => {
+      const s = box.id.replace("ds",""); const sId = "d"+s;
+      const tRows = getTRows(sId, false);
+      return { dc: document.getElementById(sId+"-dc").value,
+        dangerous_goods: document.querySelector(`input[name=${sId}-dg]:checked`)?.value||"N",
+        transport_info: tRows, po_detail: getPORows(sId),
+        special_instructions: document.getElementById(sId+"-inst")?.value.trim()||null,
+        preferred_date: document.getElementById(sId+"-date").value,
+        preferred_time: document.getElementById(sId+"-time").value };
+    });
+
+    payload = { booking_type:"Vendor Booking - Non SCMS", vendor_code:vendor,
+      delivery_type:"Direct", sites, email };
+
+  } else {
+    const idc = document.getElementById("init-dc").value;
+    show("init-dc", !idc);
+    if (!idc) { btn.disabled=false; btn.textContent="Submit Booking"; return; }
+
+    const vboxes = [...document.querySelectorAll("#sites-via .site-box")];
+    let allOk = true;
+    vboxes.forEach(box => {
+      const s = box.id.replace("vs",""); const sId = "v"+s;
+      show(sId+"-edc", !document.getElementById(sId+"-edc")?.value);
+      show(sId+"-t", getTRows(sId,true).length===0);
+      const d = document.getElementById(sId+"-date")?.value;
+      show(sId+"-date", !d||isWeekend(d));
+      if (!document.getElementById(sId+"-edc")?.value||getTRows(sId,true).length===0||!d||isWeekend(d)) allOk=false;
+    });
+    if (!allOk) { btn.disabled=false; btn.textContent="Submit Booking"; return; }
+
+    const end_sites = vboxes.map(box => {
+      const s = box.id.replace("vs",""); const sId = "v"+s;
+      const tRows = getTRows(sId, true);
+      return { end_site_dc: document.getElementById(sId+"-edc").value,
+        dangerous_goods: document.querySelector(`input[name=${sId}-dg]:checked`)?.value||"N",
+        transport_info: tRows, po_detail: getPORows(sId),
+        special_instructions: document.getElementById(sId+"-inst")?.value.trim()||null,
+        preferred_date: document.getElementById(sId+"-date").value,
+        preferred_time: document.getElementById(sId+"-time").value };
+    });
+
+    payload = { booking_type:"Vendor Booking - Non SCMS", vendor_code:vendor,
+      delivery_type:"Via DC", initial_dc:idc, end_sites, email };
+  }
+
   try {
-    if (dt === "Direct") {
-      const boxes = [...document.querySelectorAll("#sites-direct .site-box")];
-      let allOk = true;
-      boxes.forEach(box => {
-        const s = box.id.replace("ds",""); const sId = "d"+s;
-        const dcV = document.getElementById(sId+"-dc")?.value;
-        show(sId+"-dc", !dcV);
-        const tRows = getTRows(sId, false);
-        show(sId+"-t", tRows.length===0);
-        const d = document.getElementById(sId+"-date")?.value;
-        show(sId+"-date", !d||isWeekend(d));
-        if (!dcV||tRows.length===0||!d||isWeekend(d)) allOk = false;
-      });
-      if (!allOk) { btn.disabled=false; btn.textContent="Submit Booking"; return; }
-
-      for (const box of boxes) {
-        const s = box.id.replace("ds",""); const sId = "d"+s;
-        const tRows = getTRows(sId, false);
-        const payload = { booking_type:"Vendor Booking - Non SCMS", vendor_code:vendor,
-          delivery_type:"Direct", dc:document.getElementById(sId+"-dc").value, end_site_dc:null,
-          dangerous_goods: document.querySelector(`input[name=${sId}-dg]:checked`)?.value||"N",
-          transport_info:JSON.stringify(tRows), po_detail:JSON.stringify(getPORows(sId)),
-          special_instructions:document.getElementById(sId+"-inst")?.value.trim()||null,
-          preferred_date:document.getElementById(sId+"-date").value,
-          preferred_time:document.getElementById(sId+"-time").value, email };
-        await fetch(WEBHOOK, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
-      }
-    } else {
-      const idc = document.getElementById("init-dc").value;
-      show("init-dc", !idc);
-      if (!idc) { btn.disabled=false; btn.textContent="Submit Booking"; return; }
-
-      const vboxes = [...document.querySelectorAll("#sites-via .site-box")];
-      let allOk = true;
-      vboxes.forEach(box => {
-        const s = box.id.replace("vs",""); const sId = "v"+s;
-        const edc = document.getElementById(sId+"-edc")?.value;
-        show(sId+"-edc", !edc);
-        show(sId+"-t", getTRows(sId, true).length===0);
-        const d = document.getElementById(sId+"-date")?.value;
-        show(sId+"-date", !d||isWeekend(d));
-        if (!edc||getTRows(sId,true).length===0||!d||isWeekend(d)) allOk = false;
-      });
-      if (!allOk) { btn.disabled=false; btn.textContent="Submit Booking"; return; }
-
-      for (const box of vboxes) {
-        const s = box.id.replace("vs",""); const sId = "v"+s;
-        const tRows = getTRows(sId, true);
-        const payload = { booking_type:"Vendor Booking - Non SCMS", vendor_code:vendor,
-          delivery_type:"Via DC", dc:idc, end_site_dc:document.getElementById(sId+"-edc").value,
-          dangerous_goods: document.querySelector(`input[name=${sId}-dg]:checked`)?.value||"N",
-          transport_info:JSON.stringify(tRows), po_detail:JSON.stringify(getPORows(sId)),
-          special_instructions:document.getElementById(sId+"-inst")?.value.trim()||null,
-          preferred_date:document.getElementById(sId+"-date").value,
-          preferred_time:document.getElementById(sId+"-time").value, email };
-        await fetch(WEBHOOK, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
-      }
-    }
-
+    await fetch(WEBHOOK, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
     document.getElementById("frm").style.display="none";
     document.getElementById("ok").style.display="block";
   } catch {
